@@ -15,6 +15,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         dependencies/assimp/include
         dependencies/stb/include
         dependencies/d3dx12/include
+        dependencies/directxMath/include
 )
 
 file(GLOB ASSIMP_LIBS dependencies/assimp/lib/*.a)

@@ -12,4 +12,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
         MessageBoxA(nullptr, e.what(), "Error", MB_OK | MB_ICONERROR);
         return -1;
     }
+
+    return 0;
 }
