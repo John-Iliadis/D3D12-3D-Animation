@@ -9,6 +9,7 @@ constexpr UINT InitialWindowHeight = 800;
 
 Application::Application(HINSTANCE hInstance)
     : mHinstance(hInstance)
+    , mCamera(glm::vec3(0.f, 0.f, -1.f), 35, InitialWindowWidth, InitialWindowHeight)
 {
     createDebugConsole();
     createWindow();

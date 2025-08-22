@@ -13,14 +13,13 @@
 #include <dxgi1_4.h>
 #include <d3dcompiler.h>
 #include <d3d12sdklayers.h>
-#include <DirectXMath.h>
+#include <glm/glm.hpp>
 #include <stb/stb_image.h>
+#include "camera.hpp"
 
-using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
 // todo: Create model class
-// todo: Create camera class
 // todo: Write shaders
 
 class Application
@@ -66,6 +65,7 @@ private:
 
     UINT mFrameIndex;
     UINT mRtvDescriptorSize;
+    Camera mCamera;
 };
 
 #endif //D3D12___3D_ANIMATION_APPLICATION_HPP
