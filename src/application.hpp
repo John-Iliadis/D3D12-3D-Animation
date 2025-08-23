@@ -16,6 +16,7 @@
 #include <glm/glm.hpp>
 #include <stb/stb_image.h>
 #include "camera.hpp"
+#include "model.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -45,8 +46,9 @@ private:
     void createRtvDescriptorHeap();
     void createFrameResources();
 
+    void loadModel();
+
     void check(HRESULT hr, const std::string& msg);
-    UINT8* loadImage(const char* path, int* width, int* height);
     ComPtr<ID3DBlob> compileShader(const wchar_t* path, const char* target);
 
     static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l);
@@ -65,7 +67,9 @@ private:
 
     UINT mFrameIndex;
     UINT mRtvDescriptorSize;
+
     Camera mCamera;
+    Model mModel;
 };
 
 #endif //D3D12___3D_ANIMATION_APPLICATION_HPP

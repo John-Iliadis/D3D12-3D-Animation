@@ -21,6 +21,8 @@ Application::Application(HINSTANCE hInstance)
     createSwapchain();
     createRtvDescriptorHeap();
     createFrameResources();
+
+    loadModel();
 }
 
 Application::~Application()
@@ -222,31 +224,17 @@ void Application::createFrameResources()
     }
 }
 
+void Application::loadModel()
+{
+    mModel = Model("../assets/phoenix_bird/scene.gltf", mDevice.Get());
+}
+
 void Application::check(HRESULT hr, const std::string &msg)
 {
     if (FAILED(hr))
     {
         throw std::runtime_error(msg);
     }
-}
-
-UINT8 *Application::loadImage(const char *path, int *width, int *height)
-{
-    int w;
-    int h;
-    int channels;
-
-    UINT8* data = stbi_load(path, &w, &h, &channels, 4);
-
-    if (!data)
-    {
-        throw std::runtime_error("Failed to load image.");
-    }
-
-    if (width) *width = w;
-    if (height) *height = h;
-
-    return data;
 }
 
 ComPtr<ID3DBlob> Application::compileShader(const wchar_t *path, const char *target)

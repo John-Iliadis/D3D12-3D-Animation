@@ -9,7 +9,13 @@ add_executable(D3D12_3D_Animation WIN32 src/main.cpp
         src/application.cpp
         src/application.hpp
         src/camera.cpp
-        src/camera.hpp)
+        src/camera.hpp
+        src/model.cpp
+        src/model.hpp
+        src/mesh.cpp
+        src/mesh.hpp
+        src/texture.cpp
+        src/texture.hpp)
 
 add_subdirectory(dependencies/stb/)
 
