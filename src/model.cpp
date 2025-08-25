@@ -4,7 +4,7 @@
 
 #include "model.hpp"
 
-static constexpr uint32_t import_flags
+static constexpr uint32_t ImportFlags
 {
     aiProcess_Triangulate |
     aiProcess_RemoveComponent |
@@ -13,7 +13,7 @@ static constexpr uint32_t import_flags
     aiProcess_SortByPType
 };
 
-static constexpr int remove_components
+static constexpr int RemoveComponents
 {
     aiComponent_LIGHTS |
     aiComponent_CAMERAS |
@@ -22,7 +22,7 @@ static constexpr int remove_components
     aiComponent_TANGENTS_AND_BITANGENTS
 };
 
-static constexpr int remove_primitives
+static constexpr int RemovePrimitives
 {
     aiPrimitiveType_POINT |
     aiPrimitiveType_LINE
@@ -37,35 +37,30 @@ static glm::mat4 aiToGlmMat4(const aiMatrix4x4& aiMat) {
     );
 }
 
-static uint8_t* loadImage(const char *path, int *width, int *height)
+Model::Model(const std::string& path,
+             ComPtr<ID3D12Device> device,
+             ComPtr<ID3D12CommandQueue> queue,
+             ComPtr<ID3D12CommandAllocator> cmdAllocator)
 {
-    int w;
-    int h;
-    int channels;
-
-    UINT8* data = stbi_load(path, &w, &h, &channels, 4);
-
-    if (!data)
-    {
-        throw std::runtime_error("Failed to load image.");
-    }
-
-    if (width) *width = w;
-    if (height) *height = h;
-
-    return data;
+    create(path, device, queue, cmdAllocator);
 }
 
-Model::Model(const std::string &path, ID3D12Device* device)
-    : mDevice(device)
-    , mDirectory(path.substr(0), path.find_last_of('/') + 1)
+void Model::create(const std::string& path,
+                   ComPtr<ID3D12Device> device,
+                   ComPtr<ID3D12CommandQueue> queue,
+                   ComPtr<ID3D12CommandAllocator> cmdAllocator)
 {
+    mDevice = device;
+    mQueue = queue;
+    mCmdAllocator = cmdAllocator;
+    mDirectory = {path.substr(0), path.find_last_of('/') + 1};
+
     Assimp::Importer importer;
-    importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, remove_components);
-    importer.SetPropertyInteger(AI_CONFIG_PP_SBP_REMOVE, remove_primitives);
+    importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, RemoveComponents);
+    importer.SetPropertyInteger(AI_CONFIG_PP_SBP_REMOVE, RemovePrimitives);
     importer.SetPropertyBool(AI_CONFIG_PP_PTV_NORMALIZE, true);
 
-    const aiScene* scene = importer.ReadFile(path, import_flags);
+    const aiScene* scene = importer.ReadFile(path, ImportFlags);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
     {
@@ -132,11 +127,13 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
         }
     }
 
-    // todo: load texture
+    // get base color texture
     aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
     aiString baseColorTexName;
     material->GetTexture(aiTextureType_BASE_COLOR, 0, &baseColorTexName);
     std::string baseColorTexPath = std::format("{}/{}", mDirectory, baseColorTexName.C_Str());
+
+    mMeshes.emplace_back(vertices, indices, baseColorTexPath, mDevice, mQueue, mCmdAllocator);
 }
 
 std::vector<Vertex> Model::getVertices(aiMesh *mesh)
@@ -169,17 +166,4 @@ std::vector<UINT> Model::getIndices(aiMesh *mesh)
     }
 
     return indices;
-}
-
-Model &Model::operator=(Model &&other) noexcept
-{
-    if (this != &other)
-    {
-        mDevice = other.mDevice;
-        mDirectory = std::move(other.mDirectory);
-        mBoneInfoMap = std::move(other.mBoneInfoMap);
-        mMeshes = std::move(other.mMeshes);
-    }
-
-    return *this;
 }

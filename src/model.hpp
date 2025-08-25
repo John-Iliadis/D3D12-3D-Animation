@@ -29,8 +29,15 @@ class Model
 {
 public:
     Model() = default;
-    Model(const std::string& path, ID3D12Device* device);
-    Model& operator=(Model&& other) noexcept;
+    Model(const std::string& path,
+          ComPtr<ID3D12Device> device,
+          ComPtr<ID3D12CommandQueue> queue,
+          ComPtr<ID3D12CommandAllocator> cmdAllocator);
+
+    void create(const std::string& path,
+                ComPtr<ID3D12Device> device,
+                ComPtr<ID3D12CommandQueue> queue,
+                ComPtr<ID3D12CommandAllocator> cmdAllocator);
 
 private:
     void processNode(aiNode* node, const aiScene* scene);
@@ -40,7 +47,9 @@ private:
     std::vector<UINT> getIndices(aiMesh* mesh);
 
 private:
-    ID3D12Device* mDevice;
+    ComPtr<ID3D12Device> mDevice;
+    ComPtr<ID3D12CommandQueue> mQueue;
+    ComPtr<ID3D12CommandAllocator> mCmdAllocator;
     std::string mDirectory;
     std::unordered_map<std::string, BoneInfo> mBoneInfoMap;
     std::vector<Mesh> mMeshes;

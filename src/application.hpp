@@ -15,6 +15,7 @@
 #include <d3d12sdklayers.h>
 #include <glm/glm.hpp>
 #include <stb/stb_image.h>
+#include "utils.hpp"
 #include "camera.hpp"
 #include "model.hpp"
 
@@ -48,7 +49,6 @@ private:
 
     void loadModel();
 
-    void check(HRESULT hr, const std::string& msg);
     ComPtr<ID3DBlob> compileShader(const wchar_t* path, const char* target);
 
     static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l);

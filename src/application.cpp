@@ -29,6 +29,7 @@ Application::~Application()
 {
 }
 
+// todo: get dt
 void Application::run()
 {
     MSG msg {};
@@ -226,15 +227,8 @@ void Application::createFrameResources()
 
 void Application::loadModel()
 {
-    mModel = Model("../assets/phoenix_bird/scene.gltf", mDevice.Get());
-}
-
-void Application::check(HRESULT hr, const std::string &msg)
-{
-    if (FAILED(hr))
-    {
-        throw std::runtime_error(msg);
-    }
+    mModel.create("../assets/phoenix_bird/scene.gltf",
+                  mDevice, mQueue, mCommandAllocator);
 }
 
 ComPtr<ID3DBlob> Application::compileShader(const wchar_t *path, const char *target)
