@@ -53,7 +53,7 @@ void Model::create(const std::string& path,
     mDevice = device;
     mQueue = queue;
     mCmdAllocator = cmdAllocator;
-    mDirectory = {path.substr(0), path.find_last_of('/') + 1};
+    mDirectory = path.substr(0, path.find_last_of('/') + 1);
 
     Assimp::Importer importer;
     importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, RemoveComponents);

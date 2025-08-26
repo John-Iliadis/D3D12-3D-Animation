@@ -17,6 +17,10 @@ void Texture::create(ComPtr<ID3D12Device> device,
                      ComPtr<ID3D12CommandAllocator> cmdAllocator,
                      const std::string& path)
 {
+    mDevice = device;
+    mQueue = queue;
+    mCmdAllocator = cmdAllocator;
+
     int w, h, c;
     UINT8* data = stbi_load(path.data(), &w, &h, &c, 4);
 

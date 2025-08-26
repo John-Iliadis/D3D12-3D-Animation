@@ -7,6 +7,7 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <functional>
 #include <windows.h>
 #include <wrl.h>
 #include <d3d12.h>
@@ -41,6 +42,7 @@ private:
     void enableValidation();
     void createFactory();
     void createDevice();
+    void setDebugCallback();
     void createQueue();
     void createCommandAllocator();
     void createSwapchain();

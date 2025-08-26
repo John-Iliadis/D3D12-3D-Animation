@@ -6,11 +6,14 @@
 #define D3D12_3D_ANIMATION_UTILS_HPP
 
 #include <string>
+#include <iostream>
+#include <functional>
 #include <stdexcept>
 #include <windows.h>
 #include <d3d12.h>
 
 void check(HRESULT hr, const std::string& msg);
+void setD3D12DebugCallback(std::function<void()> callback);
 
 ID3D12GraphicsCommandList* beginSingleTimeCommands(ID3D12Device* device, ID3D12CommandAllocator* cmdAllocator);
 void endSingleTimeCommands(ID3D12Device* device,

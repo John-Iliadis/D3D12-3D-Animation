@@ -16,12 +16,12 @@ Application::Application(HINSTANCE hInstance)
     enableValidation();
     createFactory();
     createDevice();
+    setDebugCallback();
     createQueue();
     createCommandAllocator();
     createSwapchain();
     createRtvDescriptorHeap();
     createFrameResources();
-
     loadModel();
 }
 
@@ -145,6 +145,37 @@ void Application::createDevice()
     }
 
     throw std::runtime_error("Failed to create device.");
+}
+
+void Application::setDebugCallback()
+{
+    ID3D12Device* device = mDevice.Get();
+    setD3D12DebugCallback([device]()
+                          {
+                              ID3D12InfoQueue *infoQueue;
+
+                              if (SUCCEEDED(device->QueryInterface(IID_PPV_ARGS(&infoQueue))))
+                              {
+                                  const UINT64 numMessages = infoQueue->GetNumStoredMessagesAllowedByRetrievalFilter();
+
+                                  for (UINT64 i = 0; i < numMessages; ++i)
+                                  {
+                                      SIZE_T messageLength = 0;
+                                      infoQueue->GetMessage(i, nullptr, &messageLength);
+
+                                      D3D12_MESSAGE *message = (D3D12_MESSAGE *) malloc(messageLength);
+
+                                      if (message)
+                                      {
+                                          infoQueue->GetMessage(i, message, &messageLength);
+                                          std::cout << "D3D12 Debug: " << message->pDescription << std::endl;
+                                          free(message);
+                                      }
+                                  }
+
+                                  infoQueue->ClearStoredMessages();
+                              }
+                          });
 }
 
 void Application::createQueue()

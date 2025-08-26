@@ -3,7 +3,7 @@
 Open Asset Import Library (assimp)
 ---------------------------------------------------------------------------
 
-Copyright (c) 2006-2024, assimp team
+Copyright (c) 2006-2025, assimp team
 
 All rights reserved.
 
@@ -80,7 +80,7 @@ extern "C" {
 #   define AI_MAKE_EMBEDDED_TEXNAME(_n_) AI_EMBEDDED_TEXNAME_PREFIX # _n_
 #endif
 
-#include "./Compiler/pushpack1.h"
+#include "assimp/Compiler/pushpack1.h"
 
 // --------------------------------------------------------------------------------
 /** @brief Helper structure to represent a texel in a ARGB8888 format
@@ -111,7 +111,7 @@ struct aiTexel {
 
 } PACK_STRUCT;
 
-#include "./Compiler/poppack1.h"
+#include "assimp/Compiler/poppack1.h"
 
 #define HINTMAXTEXTURELEN 9
 
@@ -169,7 +169,8 @@ struct aiTexture {
     /** Data of the texture.
      *
      * Points to an array of mWidth * mHeight aiTexel's.
-     * The format of the texture data is always ARGB8888 to
+     * The format of the texture data shall always be ARGB8888 if the texture-hint of the type is empty.
+     * If the hint is not empty you can interpret the format by looking into this hint.
      * make the implementation for user of the library as easy
      * as possible. If mHeight = 0 this is a pointer to a memory
      * buffer of size mWidth containing the compressed texture

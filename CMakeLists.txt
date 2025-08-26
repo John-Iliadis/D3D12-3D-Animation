@@ -3,7 +3,8 @@ project(D3D12_3D_Animation)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(D3D12_3D_Animation WIN32 src/main.cpp
+add_executable(D3D12_3D_Animation WIN32
+        src/main.cpp
         src/application.cpp
         src/application.hpp
         src/application.cpp
@@ -23,19 +24,20 @@ add_subdirectory(dependencies/stb/)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
         dependencies/assimp/include
-        dependencies/stb/include
         dependencies/d3dx12/include
         dependencies/glm/include
+        dependencies/assimp/include
 )
 
-file(GLOB ASSIMP_LIBS dependencies/assimp/lib/*.a)
+set(ASSIMP_LIB ${CMAKE_CURRENT_LIST_DIR}/dependencies/assimp/lib/assimp-vc143-mt.lib)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-        stb
-        ${ASSIMP_LIBS}
         d3d12.lib
         dxgi.lib
         d3dcompiler.lib
+        dxguid.lib
+        stb
+        ${ASSIMP_LIB}
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -44,5 +46,3 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         GLM_ENABLE_EXPERIMENTAL
         GLM_FORCE_LEFT_HANDED
 )
-
-target_link_options(${PROJECT_NAME} PRIVATE -static)
