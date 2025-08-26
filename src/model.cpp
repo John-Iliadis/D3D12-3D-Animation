@@ -70,6 +70,17 @@ void Model::create(const std::string& path,
     processNode(scene->mRootNode, scene);
 }
 
+void Model::update(float dt)
+{
+
+}
+
+void Model::render(ID3D12GraphicsCommandList *cmdList)
+{
+    for (const auto& mesh : mMeshes)
+        mesh.render(cmdList);
+}
+
 void Model::processNode(aiNode *node, const aiScene *scene)
 {
     for (uint32_t i = 0; i < node->mNumMeshes; ++i)

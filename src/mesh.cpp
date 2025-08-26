@@ -11,6 +11,7 @@ Mesh::Mesh(const std::vector<Vertex> &vertices,
            ComPtr <ID3D12CommandQueue> queue,
            ComPtr <ID3D12CommandAllocator> cmdAllocator)
     : mDevice(device)
+    , mIndexCount(indices.size())
 {
     createVertexBuffer(vertices);
     createIndexBuffer(indices);
@@ -105,4 +106,12 @@ void Mesh::createIndexBuffer(const std::vector<UINT> &indices)
         .SizeInBytes = bufferSize,
         .Format = DXGI_FORMAT_R32_UINT
     };
+}
+
+void Mesh::render(ID3D12GraphicsCommandList *cmdList) const
+{
+    // todo: Set texture descriptors
+    cmdList->IASetVertexBuffers(0, 1, &mVertexBufferView);
+    cmdList->IASetIndexBuffer(&mIndexBufferView);
+    cmdList->DrawIndexedInstanced(mIndexCount, 1, 0, 0, 0);
 }

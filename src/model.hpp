@@ -39,9 +39,13 @@ public:
                 ComPtr<ID3D12CommandQueue> queue,
                 ComPtr<ID3D12CommandAllocator> cmdAllocator);
 
+    void update(float dt);
+    void render(ID3D12GraphicsCommandList* cmdList);
+
 private:
     void processNode(aiNode* node, const aiScene* scene);
     void processMesh(aiMesh* mesh, const aiScene* scene);
+    void processAnimations();
 
     std::vector<Vertex> getVertices(aiMesh* mesh);
     std::vector<UINT> getIndices(aiMesh* mesh);

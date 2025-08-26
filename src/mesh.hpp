@@ -38,7 +38,6 @@ struct Vertex
 
 using Microsoft::WRL::ComPtr;
 
-// todo: be aware of move constructor
 class Mesh
 {
 public:
@@ -48,6 +47,8 @@ public:
          ComPtr<ID3D12Device> device,
          ComPtr<ID3D12CommandQueue> queue,
          ComPtr<ID3D12CommandAllocator> cmdAllocator);
+
+    void render(ID3D12GraphicsCommandList* cmdList) const;
 
 private:
     void createVertexBuffer(const std::vector<Vertex> &vertices);
@@ -60,6 +61,7 @@ private:
     Texture mBaseColorTexture;
     D3D12_VERTEX_BUFFER_VIEW mVertexBufferView;
     D3D12_INDEX_BUFFER_VIEW mIndexBufferView;
+    UINT mIndexCount;
 };
 
 

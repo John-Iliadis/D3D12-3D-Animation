@@ -18,7 +18,9 @@ add_executable(D3D12_3D_Animation WIN32
         src/texture.cpp
         src/texture.hpp
         src/utils.cpp
-        src/utils.hpp)
+        src/utils.hpp
+        src/bone.cpp
+        src/bone.hpp)
 
 add_subdirectory(dependencies/stb/)
 
