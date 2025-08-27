@@ -37,10 +37,11 @@ struct KeyframeScale
 class Bone
 {
 public:
-    Bone(const std::string& name, int index, const aiNodeAnim* keyframeData);
-
+    Bone(const std::string& name, int index, mat4 inverseBindMat);
+    void setKeyframeData(const aiNodeAnim* keyframeData);
     void update(float timestamp);
 
+    mat4 getInverseBindMat();
     mat4 getLocalTransform();
     std::string getName();
     int getIndex();
@@ -58,6 +59,7 @@ private:
     std::vector<KeyframePosition> mPositions;
     std::vector<KeyframeRotation> mRotations;
     std::vector<KeyframeScale> mScales;
+    mat4 mInverseBindMat;
     mat4 mLocalTransform;
     std::string mName;
     int mIndex;

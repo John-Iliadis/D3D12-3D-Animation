@@ -15,14 +15,17 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <stb/stb_image.h>
+#include <array>
 #include "mesh.hpp"
+#include "bone.hpp"
 
 using glm::mat4;
 
-struct BoneInfo
+struct NodeHierarchy
 {
-    int index;
-    mat4 inverseBindMat;
+    std::string name;
+    mat4 transformation;
+    std::vector<NodeHierarchy> children;
 };
 
 class Model
@@ -45,8 +48,11 @@ public:
 private:
     void processNode(aiNode* node, const aiScene* scene);
     void processMesh(aiMesh* mesh, const aiScene* scene);
-    void processAnimations();
+    void processAnimation(const aiScene* scene);
+    void updateAnimation(float dt);
+    void updateBones(const NodeHierarchy& node, mat4 parentTransform);
 
+    NodeHierarchy getHierarchy(const aiNode* aiNode);
     std::vector<Vertex> getVertices(aiMesh* mesh);
     std::vector<UINT> getIndices(aiMesh* mesh);
 
@@ -55,8 +61,13 @@ private:
     ComPtr<ID3D12CommandQueue> mQueue;
     ComPtr<ID3D12CommandAllocator> mCmdAllocator;
     std::string mDirectory;
-    std::unordered_map<std::string, BoneInfo> mBoneInfoMap;
     std::vector<Mesh> mMeshes;
+    std::unordered_map<std::string, Bone> mBones;
+    NodeHierarchy mRoot;
+    std::array<mat4, 100> mBoneMatrices;
+    float mAnimDuration;
+    int mAnimTicksPerSec;
+    float mCurrentTime{};
 };
 
 #endif //D3D12_3D_ANIMATION_MODEL_HPP

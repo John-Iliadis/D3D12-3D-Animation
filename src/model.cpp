@@ -72,7 +72,7 @@ void Model::create(const std::string& path,
 
 void Model::update(float dt)
 {
-
+    updateAnimation(dt);
 }
 
 void Model::render(ID3D12GraphicsCommandList *cmdList)
@@ -107,14 +107,10 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
         std::string boneName = mesh->mBones[i]->mName.data;
 
         // put bone info in map
-        if (!mBoneInfoMap.contains(boneName))
+        if (!mBones.contains(boneName))
         {
-            BoneInfo info {
-                .index = static_cast<int>(mBoneInfoMap.size()),
-                .inverseBindMat = aiToGlmMat4(mesh->mBones[i]->mOffsetMatrix)
-            };
-
-            mBoneInfoMap.try_emplace(boneName, info);
+            aiMatrix4x4 inverseBindMat = mesh->mBones[i]->mOffsetMatrix;
+            mBones.try_emplace(boneName, boneName, mBones.size(), aiToGlmMat4(inverseBindMat));
         }
 
         // check which vertices this bone influences
@@ -133,7 +129,7 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
                     continue;
 
                 vertex.boneWeights[v] = boneInfluence;
-                vertex.boneIndices[v] = mBoneInfoMap.at(boneName).index;
+                vertex.boneIndices[v] = mBones.at(boneName).getIndex();
             }
         }
     }
@@ -145,6 +141,74 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
     std::string baseColorTexPath = std::format("{}/{}", mDirectory, baseColorTexName.C_Str());
 
     mMeshes.emplace_back(vertices, indices, baseColorTexPath, mDevice, mQueue, mCmdAllocator);
+}
+
+void Model::processAnimation(const aiScene* scene)
+{
+    // get animation duration
+    aiAnimation* animation = scene->mAnimations[0];
+    mAnimDuration = animation->mDuration;
+    mAnimTicksPerSec = animation->mTicksPerSecond;
+
+    // get bone keyframe data
+    for (int i = 0; i < animation->mNumChannels; ++i)
+    {
+        aiNodeAnim* node = animation->mChannels[i];
+        std::string boneName = node->mNodeName.data;
+        mBones.at(boneName).setKeyframeData(node);
+    }
+
+    // make none hierarchy
+    mRoot = getHierarchy(scene->mRootNode);
+}
+
+void Model::updateAnimation(float dt)
+{
+    mCurrentTime += dt;
+    mCurrentTime = fmod(mCurrentTime, mAnimDuration);
+    updateBones(mRoot, glm::identity<mat4>());
+}
+
+void Model::updateBones(const NodeHierarchy& node, mat4 parentTransform)
+{
+    const std::string& name = node.name;
+    mat4 transform = node.transformation;
+
+    // check if current node is a bone node
+    if (mBones.contains(name))
+    {
+        Bone& bone = mBones.at(name);
+        bone.update(mCurrentTime);
+        transform = bone.getLocalTransform();
+    }
+
+    mat4 globalTransform = parentTransform * transform;
+
+    if (mBones.contains(name))
+    {
+        Bone& bone = mBones.at(name);
+        int index = bone.getIndex();
+        mBoneMatrices.at(index) = globalTransform * bone.getInverseBindMat();
+    }
+
+    for (const auto& child : node.children)
+        updateBones(child, globalTransform);
+}
+
+NodeHierarchy Model::getHierarchy(const aiNode *aiNode)
+{
+    NodeHierarchy node {
+        .name = aiNode->mName.data,
+        .transformation = aiToGlmMat4(aiNode->mTransformation)
+    };
+
+    for (int i = 0; i < aiNode->mNumChildren; ++i)
+    {
+        struct aiNode* child = aiNode->mChildren[i];
+        node.children.push_back(getHierarchy(child));
+    }
+
+    return node;
 }
 
 std::vector<Vertex> Model::getVertices(aiMesh *mesh)

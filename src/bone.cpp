@@ -4,9 +4,14 @@
 
 #include "bone.hpp"
 
-Bone::Bone(const std::string &name, int index, const aiNodeAnim *keyframeData)
+Bone::Bone(const std::string &name, int index, mat4 inverseBindMat)
     : mName(name)
     , mIndex(index)
+    , mInverseBindMat(inverseBindMat)
+{
+}
+
+void Bone::setKeyframeData(const aiNodeAnim *keyframeData)
 {
     // get keyframe positions
     for (uint32_t i = 0; i < keyframeData->mNumPositionKeys; ++i)
@@ -49,6 +54,11 @@ void Bone::update(float timestamp)
     mat4 rotation = interpolateRotation(timestamp);
     mat4 scale = interpolateScale(timestamp);
     mLocalTransform = translation * rotation * scale;
+}
+
+mat4 Bone::getInverseBindMat()
+{
+    return mInverseBindMat;
 }
 
 mat4 Bone::getLocalTransform()
