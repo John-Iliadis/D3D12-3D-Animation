@@ -38,21 +38,29 @@ void Application::run()
 {
     MSG msg {};
 
+    using time = std::chrono::high_resolution_clock;
+    auto previousTime = time::now();
+
     while (msg.message != WM_QUIT)
     {
+        auto currentTime = time::now();
+        auto dt = currentTime - previousTime;
+        previousTime = currentTime;
+
         if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
 
-        update();
+        update(dt.count());
         render();
     }
 }
 
-void Application::update()
+void Application::update(float dt)
 {
+    mModel.update(dt);
 }
 
 void Application::render()

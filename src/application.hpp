@@ -2,11 +2,12 @@
 // Created by Gianni on 21/08/2025.
 //
 
-#ifndef D3D12___3D_ANIMATION_APPLICATION_HPP
-#define D3D12___3D_ANIMATION_APPLICATION_HPP
+#ifndef D3D12_3D_ANIMATION_APPLICATION_HPP
+#define D3D12_3D_ANIMATION_APPLICATION_HPP
 
 #include <stdexcept>
 #include <iostream>
+#include <chrono>
 #include <functional>
 #include <windows.h>
 #include <wrl.h>
@@ -31,7 +32,7 @@ public:
     void run();
 
 private:
-    void update();
+    void update(float dt);
     void render();
 
     void createDebugConsole();
@@ -79,4 +80,4 @@ private:
     Model mModel;
 };
 
-#endif //D3D12___3D_ANIMATION_APPLICATION_HPP
+#endif //D3D12_3D_ANIMATION_APPLICATION_HPP
