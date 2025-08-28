@@ -21,7 +21,9 @@ Application::Application(HINSTANCE hInstance)
     createCommandAllocator();
     createSwapchain();
     createRtvDescriptorHeap();
+    createDsvDescriptorHeap();
     createFrameResources();
+    createDepthBuffer();
     createRootSignature();
     createPipeline();
     loadModel();
@@ -245,6 +247,19 @@ void Application::createRtvDescriptorHeap()
     mRtvDescriptorSize = mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 }
 
+void Application::createDsvDescriptorHeap()
+{
+    D3D12_DESCRIPTOR_HEAP_DESC desc {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+        .NumDescriptors = 1,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+        .NodeMask = 0
+    };
+
+    auto hr = mDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(mDsvDescriptorHeap.GetAddressOf()));
+    check(hr, "Failed to create dsv descriptor heap.");
+}
+
 void Application::createFrameResources()
 {
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = mRtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
@@ -256,6 +271,54 @@ void Application::createFrameResources()
         mDevice->CreateRenderTargetView(mRenderTargets[i].Get(), nullptr, rtvHandle);
         rtvHandle.ptr += mRtvDescriptorSize;
     }
+}
+
+void Application::createDepthBuffer()
+{
+    D3D12_RESOURCE_DESC depthBufferDesc {
+        .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+        .Alignment = 0,
+        .Width = InitialWindowWidth,
+        .Height = InitialWindowHeight,
+        .DepthOrArraySize = 1,
+        .MipLevels = 1,
+        .Format = DXGI_FORMAT_D32_FLOAT,
+        .SampleDesc = {
+            .Count = 1,
+            .Quality = 0
+        },
+        .Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+        .Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL
+    };
+
+    D3D12_HEAP_PROPERTIES heapProperties {.Type = D3D12_HEAP_TYPE_DEFAULT};
+
+    D3D12_CLEAR_VALUE clearValue{
+        .Format = DXGI_FORMAT_D32_FLOAT,
+        .DepthStencil = {
+            .Depth = 1.f,
+            .Stencil = 0
+        }
+    };
+
+    auto hr = mDevice->CreateCommittedResource(
+        &heapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &depthBufferDesc,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE,
+        &clearValue,
+        IID_PPV_ARGS(mDepthBuffer.GetAddressOf()));
+    check(hr, "Failed to create depth buffer");
+
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {
+        .Format = DXGI_FORMAT_D32_FLOAT,
+        .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
+        .Flags = D3D12_DSV_FLAG_NONE
+    };
+
+    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = mDsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+
+    mDevice->CreateDepthStencilView(mDepthBuffer.Get(), &dsvDesc, dsvHandle);
 }
 
 void Application::createRootSignature()

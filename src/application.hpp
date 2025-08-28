@@ -44,7 +44,9 @@ private:
     void createCommandAllocator();
     void createSwapchain();
     void createRtvDescriptorHeap();
+    void createDsvDescriptorHeap();
     void createFrameResources();
+    void createDepthBuffer();
     void createRootSignature();
     void createPipeline();
     void loadModel();
@@ -64,7 +66,9 @@ private:
     ComPtr<ID3D12CommandAllocator> mCommandAllocator;
     ComPtr<IDXGISwapChain3> mSwapchain;
     ComPtr<ID3D12DescriptorHeap> mRtvDescriptorHeap;
+    ComPtr<ID3D12DescriptorHeap> mDsvDescriptorHeap;
     ComPtr<ID3D12Resource> mRenderTargets[2];
+    ComPtr<ID3D12Resource> mDepthBuffer;
     ComPtr<ID3D12RootSignature> mRootSignature;
     ComPtr<ID3D12PipelineState> mPipeline;
 
