@@ -221,7 +221,7 @@ std::vector<Vertex> Model::getVertices(aiMesh *mesh)
         Vertex vertex;
 
         vertex.position = *reinterpret_cast<glm::vec3*>(&mesh->mVertices[i]);
-        vertex.texCoords = *reinterpret_cast<glm::vec3*>(&mesh->mTextureCoords[0][i]);
+        vertex.texCoords = *reinterpret_cast<glm::vec2*>(&mesh->mTextureCoords[0][i]);
 
         vertices.push_back(vertex);
     }

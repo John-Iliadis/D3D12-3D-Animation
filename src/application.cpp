@@ -22,6 +22,8 @@ Application::Application(HINSTANCE hInstance)
     createSwapchain();
     createRtvDescriptorHeap();
     createFrameResources();
+    createRootSignature();
+    createPipeline();
     loadModel();
 }
 
@@ -256,10 +258,167 @@ void Application::createFrameResources()
     }
 }
 
+void Application::createRootSignature()
+{
+    D3D12_DESCRIPTOR_RANGE1 descriptorRanges[] {
+        {
+            .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+            .NumDescriptors = 1,
+            .BaseShaderRegister = 0,
+            .RegisterSpace = 0,
+            .OffsetInDescriptorsFromTableStart = 0
+        },
+        {
+            .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+            .NumDescriptors = 1,
+            .BaseShaderRegister = 1,
+            .RegisterSpace = 0,
+            .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
+        },
+        {
+            .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+            .NumDescriptors = 1,
+            .BaseShaderRegister = 0,
+            .RegisterSpace = 0,
+            .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
+        },
+    };
+
+    D3D12_ROOT_PARAMETER1 rootParameter {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+        .DescriptorTable {
+            .NumDescriptorRanges = 3,
+            .pDescriptorRanges = descriptorRanges
+        },
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
+    };
+
+    D3D12_STATIC_SAMPLER_DESC staticSamplerDesc {
+        .Filter = D3D12_FILTER_MIN_MAG_MIP_POINT,
+        .AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+        .AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+        .AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+        .ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER,
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+    };
+
+    D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc {
+        .Version = D3D_ROOT_SIGNATURE_VERSION_1_1,
+        .Desc_1_1 = {
+            .NumParameters = 1,
+            .pParameters = &rootParameter,
+            .NumStaticSamplers = 1,
+            .pStaticSamplers = &staticSamplerDesc,
+            .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+        },
+    };
+
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+
+    auto hr = D3D12SerializeVersionedRootSignature(&rootSignatureDesc, signature.GetAddressOf(), error.GetAddressOf());
+    check(hr, "Failed to serialize versioned root signature.");
+
+    hr = mDevice->CreateRootSignature(0, signature->GetBufferPointer(),
+                                      signature->GetBufferSize(),
+                                      IID_PPV_ARGS(mRootSignature.GetAddressOf()));
+    check(hr, "Failed to create root signature.");
+}
+
+void Application::createPipeline()
+{
+    ComPtr<ID3DBlob> vs = compileShader(L"../shaders/vertex.hlsl", "vs_5_0");
+    ComPtr<ID3DBlob> ps = compileShader(L"../shaders/pixel.hlsl", "ps_5_0");
+
+    D3D12_SHADER_BYTECODE vsBytecode {
+        .pShaderBytecode = vs->GetBufferPointer(),
+        .BytecodeLength = vs->GetBufferSize(),
+    };
+
+    D3D12_SHADER_BYTECODE psBytecode {
+        .pShaderBytecode = ps->GetBufferPointer(),
+        .BytecodeLength = ps->GetBufferSize(),
+    };
+
+    D3D12_RENDER_TARGET_BLEND_DESC defaultBlendDesc {
+        .BlendEnable = FALSE,
+        .LogicOpEnable = FALSE,
+        .SrcBlend = D3D12_BLEND_ONE,
+        .DestBlend = D3D12_BLEND_ZERO,
+        .BlendOp = D3D12_BLEND_OP_ADD,
+        .SrcBlendAlpha = D3D12_BLEND_ONE,
+        .DestBlendAlpha = D3D12_BLEND_ZERO,
+        .BlendOpAlpha = D3D12_BLEND_OP_ADD,
+        .LogicOp = D3D12_LOGIC_OP_NOOP,
+        .RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL
+    };
+
+    D3D12_BLEND_DESC blendState {
+        .AlphaToCoverageEnable = FALSE,
+        .IndependentBlendEnable = FALSE
+    };
+
+    for (auto& n : blendState.RenderTarget)
+        n = defaultBlendDesc;
+
+    D3D12_RASTERIZER_DESC rasterDesc {
+        .FillMode = D3D12_FILL_MODE_SOLID,
+        .CullMode = D3D12_CULL_MODE_NONE,
+        .FrontCounterClockwise = FALSE,
+        .DepthClipEnable = TRUE,
+        .MultisampleEnable = FALSE,
+        .AntialiasedLineEnable = FALSE
+    };
+
+    D3D12_DEPTH_STENCIL_DESC depthStencilState {
+        .DepthEnable = TRUE,
+        .DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL,
+        .DepthFunc = D3D12_COMPARISON_FUNC_LESS,
+        .StencilEnable = FALSE
+    };
+
+    D3D12_INPUT_ELEMENT_DESC inputElementDescs[] {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        {"BLENDINDICES", 0, DXGI_FORMAT_R32G32B32A32_SINT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        {"BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+    };
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc {
+        .pRootSignature = mRootSignature.Get(),
+        .VS = vsBytecode,
+        .PS = psBytecode,
+        .BlendState = blendState,
+        .SampleMask = UINT_MAX,
+        .RasterizerState = rasterDesc,
+        .DepthStencilState = depthStencilState,
+        .InputLayout {
+            .pInputElementDescs = inputElementDescs,
+            .NumElements = 4,
+        },
+        .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+        .NumRenderTargets = 1,
+        .RTVFormats = {DXGI_FORMAT_R8G8B8A8_UNORM},
+        .DSVFormat = DXGI_FORMAT_D32_FLOAT,
+        .SampleDesc = {
+            .Count = 1,
+            .Quality = 0
+        }
+    };
+
+    auto hr = mDevice->CreateGraphicsPipelineState(&pipelineStateDesc, IID_PPV_ARGS(mPipeline.GetAddressOf()));
+    check(hr, "Failed to create pipeline.");
+}
+
 void Application::loadModel()
 {
     mModel.create("../assets/phoenix_bird/scene.gltf",
                   mDevice, mQueue, mCommandAllocator);
+}
+
+void Application::resize()
+{
+
 }
 
 ComPtr<ID3DBlob> Application::compileShader(const wchar_t *path, const char *target)

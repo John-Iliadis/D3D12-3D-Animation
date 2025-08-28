@@ -22,9 +22,6 @@
 
 using Microsoft::WRL::ComPtr;
 
-// todo: Create model class
-// todo: Write shaders
-
 class Application
 {
 public:
@@ -48,8 +45,10 @@ private:
     void createSwapchain();
     void createRtvDescriptorHeap();
     void createFrameResources();
-
+    void createRootSignature();
+    void createPipeline();
     void loadModel();
+    void resize();
 
     ComPtr<ID3DBlob> compileShader(const wchar_t* path, const char* target);
 
@@ -66,6 +65,8 @@ private:
     ComPtr<IDXGISwapChain3> mSwapchain;
     ComPtr<ID3D12DescriptorHeap> mRtvDescriptorHeap;
     ComPtr<ID3D12Resource> mRenderTargets[2];
+    ComPtr<ID3D12RootSignature> mRootSignature;
+    ComPtr<ID3D12PipelineState> mPipeline;
 
     UINT mFrameIndex;
     UINT mRtvDescriptorSize;

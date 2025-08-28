@@ -20,7 +20,7 @@
 struct Vertex
 {
     glm::vec3 position;
-    glm::vec3 texCoords;
+    glm::vec2 texCoords;
     int boneIndices[MAX_BONE_INFLUENCES];
     float boneWeights[MAX_BONE_INFLUENCES];
 
