@@ -51,7 +51,7 @@ private:
     void createRootSignature();
     void createPipeline();
     void loadModel();
-    void resize();
+    void resize(int w, int h);
 
     ComPtr<ID3DBlob> compileShader(const wchar_t* path, const char* target);
 
@@ -73,6 +73,8 @@ private:
     ComPtr<ID3D12RootSignature> mRootSignature;
     ComPtr<ID3D12PipelineState> mPipeline;
 
+    UINT mWidth;
+    UINT mHeight;
     UINT mFrameIndex;
     UINT mRtvDescriptorSize;
 

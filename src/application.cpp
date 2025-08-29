@@ -4,12 +4,11 @@
 
 #include "application.hpp"
 
-constexpr UINT InitialWindowWidth = 1200;
-constexpr UINT InitialWindowHeight = 800;
-
 Application::Application(HINSTANCE hInstance)
     : mHinstance(hInstance)
-    , mCamera(glm::vec3(0.f, 0.f, -1.f), 35, InitialWindowWidth, InitialWindowHeight)
+    , mWidth(1200)
+    , mHeight(800)
+    , mCamera(glm::vec3(0.f, 0.f, -1.f), 35, mWidth, mHeight)
 {
     createDebugConsole();
     createWindow();
@@ -33,7 +32,6 @@ Application::~Application()
 {
 }
 
-// todo: get dt
 void Application::run()
 {
     MSG msg {};
@@ -95,8 +93,8 @@ void Application::createWindow()
     RECT windowRect {
         .left = 0,
         .top = 0,
-        .right = InitialWindowWidth,
-        .bottom = InitialWindowHeight
+        .right = static_cast<long>(mWidth),
+        .bottom = static_cast<long>(mHeight)
     };
 
     AdjustWindowRectEx(&windowRect, WS_OVERLAPPEDWINDOW, FALSE, 0);
@@ -107,8 +105,8 @@ void Application::createWindow()
                            WS_OVERLAPPEDWINDOW,
                            CW_USEDEFAULT,
                            CW_USEDEFAULT,
-                           InitialWindowWidth,
-                           InitialWindowHeight,
+                           mWidth,
+                           mHeight,
                            nullptr,
                            nullptr,
                            mHinstance,
@@ -119,6 +117,7 @@ void Application::createWindow()
         throw std::runtime_error("Windows error code: " + std::to_string(error));
     }
 
+    SetWindowLongPtr(mHwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
     ShowWindow(mHwnd, SW_SHOW);
 }
 
@@ -213,8 +212,8 @@ void Application::createSwapchain()
     ComPtr<IDXGISwapChain1> swapChain1;
 
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc{
-        .Width = InitialWindowWidth,
-        .Height = InitialWindowHeight,
+        .Width = mWidth,
+        .Height = mHeight,
         .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
         .SampleDesc = {
             .Count = 1,
@@ -286,8 +285,8 @@ void Application::createDepthBuffer()
     D3D12_RESOURCE_DESC depthBufferDesc {
         .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
         .Alignment = 0,
-        .Width = InitialWindowWidth,
-        .Height = InitialWindowHeight,
+        .Width = mWidth,
+        .Height = mHeight,
         .DepthOrArraySize = 1,
         .MipLevels = 1,
         .Format = DXGI_FORMAT_D32_FLOAT,
@@ -301,7 +300,7 @@ void Application::createDepthBuffer()
 
     D3D12_HEAP_PROPERTIES heapProperties {.Type = D3D12_HEAP_TYPE_DEFAULT};
 
-    D3D12_CLEAR_VALUE clearValue{
+    D3D12_CLEAR_VALUE clearValue {
         .Format = DXGI_FORMAT_D32_FLOAT,
         .DepthStencil = {
             .Depth = 1.f,
@@ -487,9 +486,30 @@ void Application::loadModel()
                   mDevice, mQueue, mCommandAllocator);
 }
 
-void Application::resize()
+void Application::resize(int w, int h)
 {
+    if ((w == mWidth && h == mHeight) || !mSwapchain || w == 0 || h == 0)
+        return;
 
+    std::cout << "Resized: " << w << ' ' << h << '\n';
+
+    waitDeviceIdle(mDevice.Get(), mQueue.Get());
+
+    mWidth = w;
+    mHeight = h;
+
+    mRenderTargets[0]->Release();
+    mRenderTargets[1]->Release();
+    mDepthBuffer->Release();
+
+    DXGI_SWAP_CHAIN_DESC1 swapchainDesc;
+    mSwapchain->GetDesc1(&swapchainDesc);
+
+    auto hr = mSwapchain->ResizeBuffers(2, w, h, swapchainDesc.Format, swapchainDesc.Flags);
+    check(hr, "Failed to resize swapchain buffers.");
+
+    createFrameResources();
+    createDepthBuffer();
 }
 
 ComPtr<ID3DBlob> Application::compileShader(const wchar_t *path, const char *target)
@@ -521,13 +541,20 @@ ComPtr<ID3DBlob> Application::compileShader(const wchar_t *path, const char *tar
 
 LRESULT CALLBACK Application::windowProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
 {
+    Application& app = *reinterpret_cast<Application*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+
     switch (msg)
     {
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
         case WM_SIZE:
+        {
+            int width = LOWORD(l);
+            int height = HIWORD(l);
+            app.resize(width, height);
             return 0;
+        }
     }
 
     return DefWindowProc(hwnd, msg, w, l);
