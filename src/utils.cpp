@@ -50,3 +50,24 @@ void endSingleTimeCommands(ID3D12Device* device,
     fence->Release();
     cmdList->Release();
 }
+
+void waitDeviceIdle(ID3D12Device* device, ID3D12CommandQueue* queue)
+{
+    ID3D12Fence* fence;
+    auto hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+    check(hr, "Failed to create fence.");
+
+    HANDLE event = CreateEvent(nullptr, 0, 0, nullptr);
+
+    hr = queue->Signal(fence, 1);
+    check(hr, "Failed to signal fence.");
+
+    if (fence->GetCompletedValue() < 1)
+    {
+        fence->SetEventOnCompletion(1, event);
+        WaitForSingleObject(event, INFINITE);
+    }
+
+    CloseHandle(event);
+    fence->Release();
+}

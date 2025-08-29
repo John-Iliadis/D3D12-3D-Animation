@@ -20,4 +20,6 @@ void endSingleTimeCommands(ID3D12Device* device,
                            ID3D12GraphicsCommandList* cmdList,
                            ID3D12CommandQueue* queue);
 
+void waitDeviceIdle(ID3D12Device* device, ID3D12CommandQueue* queue);
+
 #endif //D3D12_3D_ANIMATION_UTILS_HPP
