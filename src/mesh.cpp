@@ -9,13 +9,34 @@ Mesh::Mesh(const std::vector<Vertex> &vertices,
            const std::string &texPath,
            ComPtr <ID3D12Device> device,
            ComPtr <ID3D12CommandQueue> queue,
-           ComPtr <ID3D12CommandAllocator> cmdAllocator)
+           ComPtr <ID3D12CommandAllocator> cmdAllocator,
+           ComPtr <ID3D12DescriptorHeap> mSrvHeap,
+           UINT textureIndex)
     : mDevice(device)
     , mIndexCount(indices.size())
 {
     createVertexBuffer(vertices);
     createIndexBuffer(indices);
     mBaseColorTexture.create(device, queue, cmdAllocator, texPath);
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc {
+        .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+        .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
+        .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+        .Texture2D {
+            .MostDetailedMip = 0,
+            .MipLevels = 1,
+            .PlaneSlice = 0,
+            .ResourceMinLODClamp = 0
+        }
+    };
+
+    UINT descriptorPtr = textureIndex * mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = mSrvHeap->GetCPUDescriptorHandleForHeapStart();
+    srvHandle.ptr += descriptorPtr;
+    mDevice->CreateShaderResourceView(mBaseColorTexture, &shaderResourceViewDesc, srvHandle);
+    mSrvHandle = mSrvHeap->GetGPUDescriptorHandleForHeapStart();
+    mSrvHandle.ptr += descriptorPtr;
 }
 
 void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
@@ -110,7 +131,7 @@ void Mesh::createIndexBuffer(const std::vector<UINT> &indices)
 
 void Mesh::render(ID3D12GraphicsCommandList *cmdList) const
 {
-    // todo: Set texture descriptors
+    cmdList->SetGraphicsRootDescriptorTable(0, mSrvHandle);
     cmdList->IASetVertexBuffers(0, 1, &mVertexBufferView);
     cmdList->IASetIndexBuffer(&mIndexBufferView);
     cmdList->DrawIndexedInstanced(mIndexCount, 1, 0, 0, 0);

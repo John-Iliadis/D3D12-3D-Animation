@@ -45,12 +45,18 @@ public:
     void update(float dt);
     void render(ID3D12GraphicsCommandList* cmdList);
 
+    ID3D12DescriptorHeap* getSrvHeap() const;
+    ID3D12DescriptorHeap* getCbvHeap() const;
+
 private:
     void processNode(aiNode* node, const aiScene* scene);
     void processMesh(aiMesh* mesh, const aiScene* scene);
     void processAnimation(const aiScene* scene);
     void updateAnimation(float dt);
     void updateBones(const NodeHierarchy& node, mat4 parentTransform);
+    void createSrvHeap();
+    void createCbvHeap();
+    void createBoneDataBuffer();
 
     NodeHierarchy getHierarchy(const aiNode* aiNode);
     std::vector<Vertex> getVertices(aiMesh* mesh);
@@ -60,14 +66,20 @@ private:
     ComPtr<ID3D12Device> mDevice;
     ComPtr<ID3D12CommandQueue> mQueue;
     ComPtr<ID3D12CommandAllocator> mCmdAllocator;
+    ComPtr<ID3D12DescriptorHeap> mSrvHeap;
+    ComPtr<ID3D12DescriptorHeap> mCbvHeap;
+    ComPtr<ID3D12Resource> mBoneDataBuffer;
+    D3D12_CONSTANT_BUFFER_VIEW_DESC mBoneDataCBV;
     std::string mDirectory;
     std::vector<Mesh> mMeshes;
     std::unordered_map<std::string, Bone> mBones;
     NodeHierarchy mRoot;
     std::array<mat4, 100> mBoneMatrices;
+    UINT mTextureCount{};
     float mAnimDuration;
     int mAnimTicksPerSec;
     float mCurrentTime{};
+    mat4* mWritePtr;
 };
 
 #endif //D3D12_3D_ANIMATION_MODEL_HPP

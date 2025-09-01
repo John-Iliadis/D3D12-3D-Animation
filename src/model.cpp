@@ -67,12 +67,17 @@ void Model::create(const std::string& path,
         throw std::runtime_error("Failed to load model.");
     }
 
+    createSrvHeap();
+    createCbvHeap();
+    createBoneDataBuffer();
     processNode(scene->mRootNode, scene);
+    processAnimation(scene);
 }
 
 void Model::update(float dt)
 {
     updateAnimation(dt);
+    memcpy(mWritePtr, mBoneMatrices.data(), sizeof(mat4) * mBoneMatrices.size());
 }
 
 void Model::render(ID3D12GraphicsCommandList *cmdList)
@@ -139,8 +144,16 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
     aiString baseColorTexName;
     material->GetTexture(aiTextureType_BASE_COLOR, 0, &baseColorTexName);
     std::string baseColorTexPath = std::format("{}/{}", mDirectory, baseColorTexName.C_Str());
+    ++mTextureCount;
 
-    mMeshes.emplace_back(vertices, indices, baseColorTexPath, mDevice, mQueue, mCmdAllocator);
+    mMeshes.emplace_back(vertices,
+                         indices,
+                         baseColorTexPath,
+                         mDevice,
+                         mQueue,
+                         mCmdAllocator,
+                         mSrvHeap,
+                         mTextureCount - 1);
 }
 
 void Model::processAnimation(const aiScene* scene)
@@ -164,7 +177,7 @@ void Model::processAnimation(const aiScene* scene)
 
 void Model::updateAnimation(float dt)
 {
-    mCurrentTime += dt;
+    mCurrentTime += dt * mAnimTicksPerSec;
     mCurrentTime = fmod(mCurrentTime, mAnimDuration);
     updateBones(mRoot, glm::identity<mat4>());
 }
@@ -241,4 +254,63 @@ std::vector<UINT> Model::getIndices(aiMesh *mesh)
     }
 
     return indices;
+}
+
+void Model::createSrvHeap()
+{
+    D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = 2,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
+    };
+
+    auto hr = mDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvHeap));
+    check(hr, "Failed to create srv descriptor heap.");
+}
+
+void Model::createCbvHeap()
+{
+    D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = 1,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
+    };
+
+    auto hr = mDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCbvHeap));
+    check(hr, "Failed to create srv descriptor heap.");
+}
+
+void Model::createBoneDataBuffer()
+{
+    D3D12_HEAP_PROPERTIES heapProperties{ .Type = D3D12_HEAP_TYPE_UPLOAD };
+    CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(mBoneMatrices.size() * sizeof(mat4));
+
+    auto hr = mDevice->CreateCommittedResource(
+        &heapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &bufferDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        IID_PPV_ARGS(mBoneDataBuffer.GetAddressOf()));
+    check(hr, "Failed to create constant buffer");
+
+    D3D12_RANGE readRange{};
+    mBoneDataBuffer->Map(0, &readRange, (void**)&mWritePtr);
+
+    mBoneDataCBV = {
+        .BufferLocation = mBoneDataBuffer->GetGPUVirtualAddress(),
+        .SizeInBytes = UINT(sizeof(mat4) * mBoneMatrices.size())
+    };
+
+    mDevice->CreateConstantBufferView(&mBoneDataCBV, mCbvHeap->GetCPUDescriptorHandleForHeapStart());
+}
+
+ID3D12DescriptorHeap *Model::getSrvHeap() const
+{
+    return mSrvHeap.Get();
+}
+
+ID3D12DescriptorHeap *Model::getCbvHeap() const
+{
+    return mCbvHeap.Get();
 }
