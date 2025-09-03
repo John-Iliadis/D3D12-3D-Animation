@@ -365,7 +365,7 @@ void Application::createDepthBuffer()
 void Application::createMvpBuffer()
 {
     D3D12_HEAP_PROPERTIES heapProperties{ .Type = D3D12_HEAP_TYPE_UPLOAD };
-    CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(3 * sizeof(mat4));
+    CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(align256(3 * sizeof(mat4)));
 
     auto hr = mDevice->CreateCommittedResource(
         &heapProperties,
@@ -381,7 +381,7 @@ void Application::createMvpBuffer()
 
     mMvpBufferView = {
         .BufferLocation = mMvpBuffer->GetGPUVirtualAddress(),
-        .SizeInBytes = UINT(sizeof(mat4) * 3)
+        .SizeInBytes = align256(UINT(sizeof(mat4) * 3))
     };
 
     mDevice->CreateConstantBufferView(&mMvpBufferView, mCbvSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());

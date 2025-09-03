@@ -22,4 +22,6 @@ void endSingleTimeCommands(ID3D12Device* device,
 
 void waitDeviceIdle(ID3D12Device* device, ID3D12CommandQueue* queue);
 
+UINT align256(UINT bytes);
+
 #endif //D3D12_3D_ANIMATION_UTILS_HPP

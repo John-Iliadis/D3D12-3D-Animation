@@ -260,7 +260,7 @@ std::vector<UINT> Model::getIndices(aiMesh *mesh)
 void Model::createBoneDataBuffer()
 {
     D3D12_HEAP_PROPERTIES heapProperties{ .Type = D3D12_HEAP_TYPE_UPLOAD };
-    CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(mBoneMatrices.size() * sizeof(mat4));
+    CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(align256(mBoneMatrices.size() * sizeof(mat4)));
 
     auto hr = mDevice->CreateCommittedResource(
         &heapProperties,
@@ -276,7 +276,7 @@ void Model::createBoneDataBuffer()
 
     mBoneDataCBV = {
         .BufferLocation = mBoneDataBuffer->GetGPUVirtualAddress(),
-        .SizeInBytes = UINT(sizeof(mat4) * mBoneMatrices.size())
+        .SizeInBytes = align256(UINT(sizeof(mat4) * mBoneMatrices.size()))
     };
 
     D3D12_CPU_DESCRIPTOR_HANDLE descriptorSlot = mDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
