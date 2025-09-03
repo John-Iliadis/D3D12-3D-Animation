@@ -47,7 +47,7 @@ public:
          ComPtr<ID3D12Device> device,
          ComPtr<ID3D12CommandQueue> queue,
          ComPtr<ID3D12CommandAllocator> cmdAllocator,
-         ComPtr <ID3D12DescriptorHeap> mSrvHeap,
+         ComPtr <ID3D12DescriptorHeap> descriptorHeap,
          UINT textureIndex);
 
     void render(ID3D12GraphicsCommandList* cmdList) const;

@@ -46,12 +46,16 @@ private:
     void createSwapchain();
     void createRtvDescriptorHeap();
     void createDsvDescriptorHeap();
+    void createCbvSrvDescriptorHeap();
     void createFrameResources();
     void createDepthBuffer();
+    void createMvpBuffer();
     void createRootSignature();
     void createPipeline();
     void loadModel();
     void resize(int w, int h);
+    void updateMVP();
+    void populateCommandList(ID3D12GraphicsCommandList* commandList);
 
     ComPtr<ID3DBlob> compileShader(const wchar_t* path, const char* target);
 
@@ -68,8 +72,11 @@ private:
     ComPtr<IDXGISwapChain3> mSwapchain;
     ComPtr<ID3D12DescriptorHeap> mRtvDescriptorHeap;
     ComPtr<ID3D12DescriptorHeap> mDsvDescriptorHeap;
+    ComPtr<ID3D12DescriptorHeap> mCbvSrvDescriptorHeap;
     ComPtr<ID3D12Resource> mRenderTargets[2];
     ComPtr<ID3D12Resource> mDepthBuffer;
+    ComPtr<ID3D12Resource> mMvpBuffer;
+    D3D12_CONSTANT_BUFFER_VIEW_DESC mMvpBufferView;
     ComPtr<ID3D12RootSignature> mRootSignature;
     ComPtr<ID3D12PipelineState> mPipeline;
 
@@ -77,6 +84,7 @@ private:
     UINT mHeight;
     UINT mFrameIndex;
     UINT mRtvDescriptorSize;
+    mat4* mMvpWritePtr;
 
     Camera mCamera;
     Model mModel;

@@ -35,18 +35,17 @@ public:
     Model(const std::string& path,
           ComPtr<ID3D12Device> device,
           ComPtr<ID3D12CommandQueue> queue,
-          ComPtr<ID3D12CommandAllocator> cmdAllocator);
+          ComPtr<ID3D12CommandAllocator> cmdAllocator,
+          ComPtr<ID3D12DescriptorHeap> descriptorHeap);
 
     void create(const std::string& path,
                 ComPtr<ID3D12Device> device,
                 ComPtr<ID3D12CommandQueue> queue,
-                ComPtr<ID3D12CommandAllocator> cmdAllocator);
+                ComPtr<ID3D12CommandAllocator> cmdAllocator,
+                ComPtr<ID3D12DescriptorHeap> descriptorHeap);
 
     void update(float dt);
     void render(ID3D12GraphicsCommandList* cmdList);
-
-    ID3D12DescriptorHeap* getSrvHeap() const;
-    ID3D12DescriptorHeap* getCbvHeap() const;
 
 private:
     void processNode(aiNode* node, const aiScene* scene);
@@ -54,8 +53,6 @@ private:
     void processAnimation(const aiScene* scene);
     void updateAnimation(float dt);
     void updateBones(const NodeHierarchy& node, mat4 parentTransform);
-    void createSrvHeap();
-    void createCbvHeap();
     void createBoneDataBuffer();
 
     NodeHierarchy getHierarchy(const aiNode* aiNode);
@@ -66,9 +63,8 @@ private:
     ComPtr<ID3D12Device> mDevice;
     ComPtr<ID3D12CommandQueue> mQueue;
     ComPtr<ID3D12CommandAllocator> mCmdAllocator;
-    ComPtr<ID3D12DescriptorHeap> mSrvHeap;
-    ComPtr<ID3D12DescriptorHeap> mCbvHeap;
     ComPtr<ID3D12Resource> mBoneDataBuffer;
+    ComPtr<ID3D12DescriptorHeap> mDescriptorHeap;
     D3D12_CONSTANT_BUFFER_VIEW_DESC mBoneDataCBV;
     std::string mDirectory;
     std::vector<Mesh> mMeshes;

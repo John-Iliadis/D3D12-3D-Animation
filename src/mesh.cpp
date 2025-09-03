@@ -10,7 +10,7 @@ Mesh::Mesh(const std::vector<Vertex> &vertices,
            ComPtr <ID3D12Device> device,
            ComPtr <ID3D12CommandQueue> queue,
            ComPtr <ID3D12CommandAllocator> cmdAllocator,
-           ComPtr <ID3D12DescriptorHeap> mSrvHeap,
+           ComPtr <ID3D12DescriptorHeap> descriptorHeap,
            UINT textureIndex)
     : mDevice(device)
     , mIndexCount(indices.size())
@@ -31,11 +31,14 @@ Mesh::Mesh(const std::vector<Vertex> &vertices,
         }
     };
 
+    // write descriptor
     UINT descriptorPtr = textureIndex * mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = mSrvHeap->GetCPUDescriptorHandleForHeapStart();
+    D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = descriptorHeap->GetCPUDescriptorHandleForHeapStart();
     srvHandle.ptr += descriptorPtr;
     mDevice->CreateShaderResourceView(mBaseColorTexture, &shaderResourceViewDesc, srvHandle);
-    mSrvHandle = mSrvHeap->GetGPUDescriptorHandleForHeapStart();
+
+    // get gpu virtual address
+    mSrvHandle = descriptorHeap->GetGPUDescriptorHandleForHeapStart();
     mSrvHandle.ptr += descriptorPtr;
 }
 
@@ -131,7 +134,7 @@ void Mesh::createIndexBuffer(const std::vector<UINT> &indices)
 
 void Mesh::render(ID3D12GraphicsCommandList *cmdList) const
 {
-    cmdList->SetGraphicsRootDescriptorTable(0, mSrvHandle);
+    cmdList->SetGraphicsRootDescriptorTable(1, mSrvHandle);
     cmdList->IASetVertexBuffers(0, 1, &mVertexBufferView);
     cmdList->IASetIndexBuffer(&mIndexBufferView);
     cmdList->DrawIndexedInstanced(mIndexCount, 1, 0, 0, 0);

@@ -21,8 +21,10 @@ Application::Application(HINSTANCE hInstance)
     createSwapchain();
     createRtvDescriptorHeap();
     createDsvDescriptorHeap();
+    createCbvSrvDescriptorHeap();
     createFrameResources();
     createDepthBuffer();
+    createMvpBuffer();
     createRootSignature();
     createPipeline();
     loadModel();
@@ -58,11 +60,32 @@ void Application::run()
 
 void Application::update(float dt)
 {
+    mCamera.update(dt);
     mModel.update(dt);
+    updateMVP();
 }
 
 void Application::render()
 {
+    auto hr = mCommandAllocator->Reset();
+    check(hr, "Failed to reset command allocator.");
+
+    ComPtr<ID3D12GraphicsCommandList> commandList;
+    hr = mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                    mCommandAllocator.Get(),
+                                    nullptr, IID_PPV_ARGS(commandList.GetAddressOf()));
+    check(hr, "Failed to create command list.");
+
+    populateCommandList(commandList.Get());
+
+    ID3D12CommandList* ppCommandLists[] = {commandList.Get()};
+    mQueue->ExecuteCommandLists(1, ppCommandLists);
+
+    hr = mSwapchain->Present(1, 0);
+    check(hr, "Failed to present frame.");
+
+    waitDeviceIdle(mDevice.Get(), mQueue.Get());
+    mFrameIndex = mSwapchain->GetCurrentBackBufferIndex();
 }
 
 void Application::createDebugConsole()
@@ -241,7 +264,7 @@ void Application::createSwapchain()
 
 void Application::createRtvDescriptorHeap()
 {
-    D3D12_DESCRIPTOR_HEAP_DESC desc{
+    D3D12_DESCRIPTOR_HEAP_DESC desc {
         .Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
         .NumDescriptors = 2,
         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
@@ -265,6 +288,18 @@ void Application::createDsvDescriptorHeap()
 
     auto hr = mDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(mDsvDescriptorHeap.GetAddressOf()));
     check(hr, "Failed to create dsv descriptor heap.");
+}
+
+void Application::createCbvSrvDescriptorHeap()
+{
+    D3D12_DESCRIPTOR_HEAP_DESC desc {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = 10,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+    };
+
+    auto hr = mDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(mCbvSrvDescriptorHeap.GetAddressOf()));
+    check(hr, "Failed to create cbv descriptor heap.");
 }
 
 void Application::createFrameResources()
@@ -324,43 +359,69 @@ void Application::createDepthBuffer()
     };
 
     D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = mDsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-
     mDevice->CreateDepthStencilView(mDepthBuffer.Get(), &dsvDesc, dsvHandle);
+}
+
+void Application::createMvpBuffer()
+{
+    D3D12_HEAP_PROPERTIES heapProperties{ .Type = D3D12_HEAP_TYPE_UPLOAD };
+    CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(3 * sizeof(mat4));
+
+    auto hr = mDevice->CreateCommittedResource(
+        &heapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &bufferDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        IID_PPV_ARGS(mMvpBuffer.GetAddressOf()));
+    check(hr, "Failed to create mvp buffer");
+
+    D3D12_RANGE readRange{};
+    mMvpBuffer->Map(0, &readRange, (void**)&mMvpWritePtr);
+
+    mMvpBufferView = {
+        .BufferLocation = mMvpBuffer->GetGPUVirtualAddress(),
+        .SizeInBytes = UINT(sizeof(mat4) * 3)
+    };
+
+    mDevice->CreateConstantBufferView(&mMvpBufferView, mCbvSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 void Application::createRootSignature()
 {
-    D3D12_DESCRIPTOR_RANGE1 descriptorRanges[] {
-        {
-            .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
-            .NumDescriptors = 1,
-            .BaseShaderRegister = 0,
-            .RegisterSpace = 0,
-            .OffsetInDescriptorsFromTableStart = 0
-        },
-        {
-            .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
-            .NumDescriptors = 1,
-            .BaseShaderRegister = 1,
-            .RegisterSpace = 0,
-            .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
-        },
-        {
-            .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-            .NumDescriptors = 1,
-            .BaseShaderRegister = 0,
-            .RegisterSpace = 0,
-            .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
-        },
+    D3D12_DESCRIPTOR_RANGE1 descriptorRangeCbv {
+        .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+        .NumDescriptors = 2,
+        .BaseShaderRegister = 0,
+        .RegisterSpace = 0,
+        .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
     };
 
-    D3D12_ROOT_PARAMETER1 rootParameter {
-        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-        .DescriptorTable {
-            .NumDescriptorRanges = 3,
-            .pDescriptorRanges = descriptorRanges
+    D3D12_DESCRIPTOR_RANGE1 descriptorRangeSrv {
+        .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+        .NumDescriptors = 1,
+        .BaseShaderRegister = 0,
+        .RegisterSpace = 0,
+        .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
+    };
+
+    D3D12_ROOT_PARAMETER1 rootParameters[2] {
+        {
+            .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+            .DescriptorTable {
+                .NumDescriptorRanges = 1,
+                .pDescriptorRanges = &descriptorRangeCbv
+            },
+            .ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX
         },
-        .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
+        {
+            .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+            .DescriptorTable {
+                .NumDescriptorRanges = 1,
+                .pDescriptorRanges = &descriptorRangeSrv
+            },
+            .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+        }
     };
 
     D3D12_STATIC_SAMPLER_DESC staticSamplerDesc {
@@ -375,8 +436,8 @@ void Application::createRootSignature()
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc {
         .Version = D3D_ROOT_SIGNATURE_VERSION_1_1,
         .Desc_1_1 = {
-            .NumParameters = 1,
-            .pParameters = &rootParameter,
+            .NumParameters = 2,
+            .pParameters = rootParameters,
             .NumStaticSamplers = 1,
             .pStaticSamplers = &staticSamplerDesc,
             .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
@@ -483,7 +544,8 @@ void Application::createPipeline()
 void Application::loadModel()
 {
     mModel.create("../assets/phoenix_bird/scene.gltf",
-                  mDevice, mQueue, mCommandAllocator);
+                  mDevice, mQueue,
+                  mCommandAllocator, mCbvSrvDescriptorHeap);
 }
 
 void Application::resize(int w, int h)
@@ -512,7 +574,85 @@ void Application::resize(int w, int h)
     createDepthBuffer();
 }
 
-ComPtr<ID3DBlob> Application::compileShader(const wchar_t *path, const char *target)
+void Application::updateMVP()
+{
+    mat4 model = glm::identity<mat4>();
+    mat4 view = mCamera.view();
+    mat4 projection = mCamera.projection();
+
+    mat4 mvp[] {model, view, projection};
+
+    memcpy(mMvpWritePtr, mvp, sizeof(mvp));
+}
+
+void Application::populateCommandList(ID3D12GraphicsCommandList* commandList)
+{
+    D3D12_VIEWPORT viewport {
+        .TopLeftX = 0.f,
+        .TopLeftY = 0.f,
+        .Width = static_cast<float>(mWidth),
+        .Height = static_cast<float>(mHeight),
+        .MinDepth = 0.f,
+        .MaxDepth = 1.f
+    };
+
+    D3D12_RECT scissor {
+        .left = 0,
+        .top = 0,
+        .right = static_cast<long>(mWidth),
+        .bottom = static_cast<long>(mHeight)
+    };
+
+    D3D12_RESOURCE_BARRIER resourceBarrier {
+        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+        .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+        .Transition = {
+            .pResource = mRenderTargets[mFrameIndex].Get(),
+            .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+            .StateBefore = D3D12_RESOURCE_STATE_PRESENT,
+            .StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
+        }
+    };
+
+    commandList->ResourceBarrier(1, &resourceBarrier);
+
+    ID3D12DescriptorHeap** ppHeaps = mCbvSrvDescriptorHeap.GetAddressOf();
+    commandList->SetGraphicsRootSignature(mRootSignature.Get());
+    commandList->SetDescriptorHeaps(1, ppHeaps);
+    commandList->SetGraphicsRootDescriptorTable(0, mCbvSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+    commandList->RSSetViewports(1, &viewport);
+    commandList->RSSetScissorRects(1, &scissor);
+
+    const float clearColor[] {0.f, 0.f, 0.f, 1.f};
+    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = mDsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = mRtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+    rtvHandle.ptr += mFrameIndex * mRtvDescriptorSize;
+
+    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+    commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+    commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
+    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    mModel.render(commandList);
+
+    D3D12_RESOURCE_BARRIER resourceBarrierPresent
+    {
+        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+        .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+        .Transition = {
+            .pResource = mRenderTargets[mFrameIndex].Get(),
+            .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+            .StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
+            .StateAfter = D3D12_RESOURCE_STATE_PRESENT,
+        }
+    };
+
+    commandList->ResourceBarrier(1, &resourceBarrierPresent);
+    auto hr = commandList->Close();
+    check(hr, "Failed to close command list.");
+}
+
+ComPtr<ID3DBlob> Application::compileShader(const wchar_t* path, const char* target)
 {
     UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 

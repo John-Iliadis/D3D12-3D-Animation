@@ -40,19 +40,22 @@ static glm::mat4 aiToGlmMat4(const aiMatrix4x4& aiMat) {
 Model::Model(const std::string& path,
              ComPtr<ID3D12Device> device,
              ComPtr<ID3D12CommandQueue> queue,
-             ComPtr<ID3D12CommandAllocator> cmdAllocator)
+             ComPtr<ID3D12CommandAllocator> cmdAllocator,
+             ComPtr<ID3D12DescriptorHeap> descriptorHeap)
 {
-    create(path, device, queue, cmdAllocator);
+    create(path, device, queue, cmdAllocator, descriptorHeap);
 }
 
 void Model::create(const std::string& path,
                    ComPtr<ID3D12Device> device,
                    ComPtr<ID3D12CommandQueue> queue,
-                   ComPtr<ID3D12CommandAllocator> cmdAllocator)
+                   ComPtr<ID3D12CommandAllocator> cmdAllocator,
+                   ComPtr<ID3D12DescriptorHeap> descriptorHeap)
 {
     mDevice = device;
     mQueue = queue;
     mCmdAllocator = cmdAllocator;
+    mDescriptorHeap = descriptorHeap;
     mDirectory = path.substr(0, path.find_last_of('/') + 1);
 
     Assimp::Importer importer;
@@ -67,8 +70,6 @@ void Model::create(const std::string& path,
         throw std::runtime_error("Failed to load model.");
     }
 
-    createSrvHeap();
-    createCbvHeap();
     createBoneDataBuffer();
     processNode(scene->mRootNode, scene);
     processAnimation(scene);
@@ -152,7 +153,7 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene)
                          mDevice,
                          mQueue,
                          mCmdAllocator,
-                         mSrvHeap,
+                         mDescriptorHeap,
                          mTextureCount - 1);
 }
 
@@ -256,30 +257,6 @@ std::vector<UINT> Model::getIndices(aiMesh *mesh)
     return indices;
 }
 
-void Model::createSrvHeap()
-{
-    D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc {
-        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-        .NumDescriptors = 2,
-        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
-    };
-
-    auto hr = mDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvHeap));
-    check(hr, "Failed to create srv descriptor heap.");
-}
-
-void Model::createCbvHeap()
-{
-    D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc {
-        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-        .NumDescriptors = 1,
-        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
-    };
-
-    auto hr = mDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCbvHeap));
-    check(hr, "Failed to create srv descriptor heap.");
-}
-
 void Model::createBoneDataBuffer()
 {
     D3D12_HEAP_PROPERTIES heapProperties{ .Type = D3D12_HEAP_TYPE_UPLOAD };
@@ -302,15 +279,7 @@ void Model::createBoneDataBuffer()
         .SizeInBytes = UINT(sizeof(mat4) * mBoneMatrices.size())
     };
 
-    mDevice->CreateConstantBufferView(&mBoneDataCBV, mCbvHeap->GetCPUDescriptorHandleForHeapStart());
-}
-
-ID3D12DescriptorHeap *Model::getSrvHeap() const
-{
-    return mSrvHeap.Get();
-}
-
-ID3D12DescriptorHeap *Model::getCbvHeap() const
-{
-    return mCbvHeap.Get();
+    D3D12_CPU_DESCRIPTOR_HANDLE descriptorSlot = mDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+    descriptorSlot.ptr += mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV); // index 1
+    mDevice->CreateConstantBufferView(&mBoneDataCBV, descriptorSlot);
 }
