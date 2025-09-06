@@ -102,10 +102,8 @@ int Bone::getStartingScaleKeyframeIndex(float timestamp)
 
 mat4 Bone::interpolatePosition(float timestamp)
 {
-    if (mPositions.size() == 1)
-    {
-        return glm::translate(glm::identity<mat4>(), mPositions.front().position);
-    }
+    if (mPositions.empty()) return glm::identity<mat4>();
+    if (mPositions.size() == 1) return glm::translate(glm::identity<mat4>(), mPositions.front().position);
 
     int frameIndex1 = getStartingPositionKeyframeIndex(timestamp);
     int frameIndex2 = frameIndex1 + 1;
@@ -123,10 +121,8 @@ mat4 Bone::interpolatePosition(float timestamp)
 
 mat4 Bone::interpolateRotation(float timestamp)
 {
-    if (mRotations.size() == 1)
-    {
-        return glm::toMat4(glm::normalize(mRotations.front().rotation));
-    }
+    if (mRotations.empty()) return glm::identity<mat4>();
+    if (mRotations.size() == 1) return glm::toMat4(glm::normalize(mRotations.front().rotation));
 
     int frameIndex1 = getStartingRotationKeyframeIndex(timestamp);
     int frameIndex2 = frameIndex1 + 1;
@@ -144,10 +140,8 @@ mat4 Bone::interpolateRotation(float timestamp)
 
 mat4 Bone::interpolateScale(float timestamp)
 {
-    if (mScales.size() == 1)
-    {
-        return glm::scale(glm::identity<mat4>(), mScales.front().scale);
-    }
+    if (mScales.empty()) return glm::identity<mat4>();
+    if (mScales.size() == 1) return glm::scale(glm::identity<mat4>(), mScales.front().scale);
 
     int frameIndex1 = getStartingScaleKeyframeIndex(timestamp);
     int frameIndex2 = frameIndex1 + 1;
